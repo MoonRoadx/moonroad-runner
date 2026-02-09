@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>🌙 Moonroad Runner</title>
+    <title>🌙 Le Coureur de la Route Lunaire</title>
     <style>
         * {
             margin: 0;
@@ -49,11 +49,8 @@
         #gameContainer {
             position: relative;
             width: 100%;
-            max-width: 100vw;
-            max-height: 90vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            max-width: 900px;
+            height: auto;
             margin: 0 auto;
             overflow: hidden;
         }
@@ -64,11 +61,9 @@
             box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
             display: block;
             background: #0a0e27;
-            touch-action: none;
-            width: 100% !important;
-            height: auto !important;
+            width: 100%;
+            height: auto;
             max-height: 90vh;
-            max-width: 100vw;
         }
 
         .controls {
@@ -135,12 +130,69 @@
             z-index: 1000;
             pointer-events: none;
         }
+
+        .game-over-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: #ffd700;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            flex-direction: column;
+        }
+
+        .game-over-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(26, 18, 64, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            border: 3px solid #ffd700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+        }
+
+        .game-over-screen h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #ffd700;
+        }
+
+        .game-over-screen p {
+            font-size: 1.5em;
+            margin: 10px;
+        }
+
+        #restartButton, #shareButton {
+            margin: 15px;
+            padding: 12px 24px;
+            font-size: 1.2em;
+            background: rgba(255, 215, 0, 0.7);
+            color: #0a0e27;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #restartButton:hover, #shareButton:hover {
+            background: rgba(255, 215, 0, 1);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div style="font-size: clamp(2em, 8vw, 4em);">👨‍🚀</div>
-        <div class="title">MOONROAD RUNNER</div>
+        <div class="title">LE COUREUR DE LA ROUTE LUNAIRE</div>
     </div>
 
     <div id="gameContainer">
@@ -158,7 +210,17 @@
     </div>
 
     <div class="info" id="info">
-        Press SPACE or tap screen to start!
+        Appuyez sur ESPACE ou touchez l'écran pour commencer !
+    </div>
+
+    <div id="gameOverScreen" class="game-over-screen">
+        <div class="game-over-content">
+            <h1>PARTIE TERMINÉE</h1>
+            <p id="finalScoreText">SCORE: 0</p>
+            <p id="finalBestScoreText">MEILLEUR: 0</p>
+            <button id="restartButton">Rejouer</button>
+            <button id="shareButton">Partager mon score</button>
+        </div>
     </div>
 
     <script>
@@ -166,24 +228,22 @@
         const ctx = canvas.getContext('2d');
         const controls = document.getElementById('controls');
         const info = document.getElementById('info');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScoreText = document.getElementById('finalScoreText');
+        const finalBestScoreText = document.getElementById('finalBestScoreText');
+        const restartButton = document.getElementById('restartButton');
+        const shareButton = document.getElementById('shareButton');
+
+        // Sons
+        const jumpSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3');
+        const coinSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3');
 
         // Detect mobile
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        // Resize canvas
-        function resizeCanvas() {
-            const maxWidth = isMobile ? Math.min(800, window.innerWidth - 20) : 800;
-            const maxHeight = isMobile ? window.innerHeight * 0.85 : 600;
-            canvas.width = maxWidth;
-            canvas.height = maxHeight;
-        }
-
-        // Initial resize
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
         // Game state
         let gameStarted = false;
+        let gameOver = false;
         let score = 0;
 
         // Player
@@ -211,6 +271,14 @@
 
         // Stars
         let stars = [];
+
+        // Resize canvas
+        function resizeCanvas() {
+            const maxCanvasWidth = isMobile ? Math.min(800, window.innerWidth - 20) : Math.min(900, window.innerWidth - 40);
+            const maxCanvasHeight = window.innerHeight * 0.85;
+            canvas.width = maxCanvasWidth;
+            canvas.height = maxCanvasHeight;
+        }
 
         // Initialize game elements
         function initGameElements() {
@@ -243,8 +311,6 @@
             player.y = canvas.height * 0.7;
         }
 
-        initGameElements();
-
         // Controls
         let keys = {};
         let touch = { left: false, right: false, jump: false };
@@ -252,7 +318,7 @@
         // Keyboard
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            if ((e.key === ' ' || e.key === 'Enter') && !gameStarted) {
+            if ((e.key === ' ' || e.key === 'Enter') && !gameStarted && !gameOver) {
                 startGame();
             }
         });
@@ -286,23 +352,25 @@
 
         // Tap to start
         canvas.addEventListener('touchstart', (e) => {
-            if (!gameStarted) {
+            if (!gameStarted && !gameOver) {
                 e.preventDefault();
                 startGame();
             }
         });
 
         canvas.addEventListener('click', () => {
-            if (!gameStarted) startGame();
+            if (!gameStarted && !gameOver) startGame();
         });
 
         function startGame() {
             gameStarted = true;
+            gameOver = false;
+            gameOverScreen.style.display = 'none';
             if (isMobile) {
                 controls.classList.add('active');
-                info.textContent = 'Use controls to move!';
+                info.textContent = 'Utilisez les commandes pour vous déplacer !';
             } else {
-                info.textContent = '← → Move | ↑ Jump';
+                info.textContent = '← → Déplacer | ↑ Sauter';
             }
             setTimeout(() => {
                 info.style.opacity = '0.5';
@@ -424,7 +492,7 @@
 
         // Update
         function update() {
-            if (!gameStarted) return;
+            if (!gameStarted || gameOver) return;
 
             const isLeft = keys['ArrowLeft'] || touch.left;
             const isRight = keys['ArrowRight'] || touch.right;
@@ -445,6 +513,8 @@
             if (isJump && !player.jumping) {
                 player.velocityY = jumpPower;
                 player.jumping = true;
+                jumpSound.currentTime = 0;
+                jumpSound.play();
             }
 
             // Apply gravity
@@ -481,6 +551,8 @@
                     if (checkCollision(player, coinRect)) {
                         coin.collected = true;
                         score += 10;
+                        coinSound.currentTime = 0;
+                        coinSound.play();
 
                         // Update high score
                         const highScore = localStorage.getItem('highScore') || 0;
@@ -490,10 +562,18 @@
                     }
                 }
             }
+
+            // Game over
+            if (player.y > canvas.height) {
+                gameOver = true;
+                showGameOverScreen();
+            }
         }
 
         // Draw
         function draw() {
+            if (!gameStarted) return;
+
             // Clear
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -528,21 +608,47 @@
             ctx.strokeStyle = '#ff6b00';
             ctx.lineWidth = 3;
             ctx.font = 'bold 20px Arial';
-            ctx.strokeText('MRT COINS: ' + score, 16, 30);
-            ctx.fillText('MRT COINS: ' + score, 16, 30);
+            ctx.strokeText('MRT PIÈCES: ' + score, 16, 30);
+            ctx.fillText('MRT PIÈCES: ' + score, 16, 30);
 
             // High score
             const highScore = localStorage.getItem('highScore') || 0;
             ctx.font = 'bold 16px Arial';
-            ctx.strokeText('BEST: ' + highScore, 16, 60);
-            ctx.fillText('BEST: ' + highScore, 16, 60);
+            ctx.strokeText('MEILLEUR: ' + highScore, 16, 60);
+            ctx.fillText('MEILLEUR: ' + highScore, 16, 60);
 
             // Title
             ctx.font = 'bold 24px Arial';
             ctx.textAlign = 'center';
-            ctx.strokeText('MOONROAD RUNNER', canvas.width / 2, 50);
-            ctx.fillText('MOONROAD RUNNER', canvas.width / 2, 50);
+            ctx.strokeText('LE COUREUR DE LA ROUTE LUNAIRE', canvas.width / 2, 50);
+            ctx.fillText('LE COUREUR DE LA ROUTE LUNAIRE', canvas.width / 2, 50);
             ctx.textAlign = 'left';
+        }
+
+        // Show game over screen
+        function showGameOverScreen() {
+            gameStarted = false;
+            gameOverScreen.style.display = 'flex';
+            finalScoreText.textContent = 'SCORE: ' + score;
+            finalBestScoreText.textContent = 'MEILLEUR: ' + (localStorage.getItem('highScore') || 0);
+        }
+
+        // Share score
+        function shareScore() {
+            const currentScore = localStorage.getItem('highScore') || score;
+            const shareText = `J'ai obtenu un score de ${currentScore} sur Le Coureur de la Route Lunaire ! 🌙👨‍🚀`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Le Coureur de la Route Lunaire',
+                    text: shareText,
+                    url: window.location.href,
+                }).catch(err => {
+                    console.log('Erreur de partage:', err);
+                    alert("Partage non supporté. Copiez ce texte : " + shareText);
+                });
+            } else {
+                alert("Partage non supporté. Copiez ce texte : " + shareText);
+            }
         }
 
         // Game loop
@@ -552,7 +658,21 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Start game loop
+        // Event listeners
+        restartButton.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            score = 0;
+            gameOver = false;
+            initGameElements();
+            startGame();
+        });
+
+        shareButton.addEventListener('click', shareScore);
+
+        // Start
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        initGameElements();
         gameLoop();
     </script>
 </body>
