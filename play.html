@@ -191,36 +191,36 @@
         }
         
         // Draw coin
-        function drawCoin(x, y, time) {
-            const floatY = y + Math.sin(time / 500 + floatOffset) * 5;
-            
-            ctx.save();
-            ctx.translate(x, floatY);
-            ctx.rotate(time / 1000);
-            
-            // Outer
-            ctx.fillStyle = '#ffd700';
-            ctx.strokeStyle = '#ff6b00';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Inner
-            ctx.fillStyle = '#ffed4e';
-            ctx.beginPath();
-            ctx.arc(0, 0, 8, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // M
-            ctx.fillStyle = '#ff6b00';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('M', 0, 0);
-            
-            ctx.restore();
+function drawCoin(x, y, time, offset) {
+    const floatY = y + Math.sin(time / 500 + offset) * 5;
+    
+    ctx.save();
+    ctx.translate(x, floatY);
+    ctx.rotate(time / 1000);
+    
+    // Outer
+    ctx.fillStyle = '#ffd700';
+    ctx.strokeStyle = '#ff6b00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Inner
+    ctx.fillStyle = '#ffed4e';
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // M
+    ctx.fillStyle = '#ff6b00';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('M', 0, 0);
+    
+    ctx.restore();
         }
         
         // Collision detection
@@ -308,12 +308,12 @@
             }
             
             // Coins
-            const time = Date.now();
-            for (let coin of coins) {
-                if (!coin.collected) {
-                    drawCoin(coin.x, coin.y, time + coin.floatOffset * 1000);
-                }
-            }
+const time = Date.now();
+for (let coin of coins) {
+    if (!coin.collected) {
+        drawCoin(coin.x, coin.y, time, coin.floatOffset);
+    }
+}
             
             // Player
             drawAstronaut(player.x + player.width / 2, player.y + player.height / 2, player.facingRight);
