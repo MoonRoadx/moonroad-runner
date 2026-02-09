@@ -48,7 +48,6 @@
             margin-top: 20px;
             font-size: 11px;
             text-shadow: 0 0 5px #00ff00;
-            max-width: 800px;
         }
         
         .astronaut-float {
@@ -68,15 +67,13 @@
     <h1>🌙 MOONROAD RUNNER 🚀</h1>
     <div id="game-container"></div>
     <div class="info">
-        ← → Move | ↑ Jump | Press SPACE to start!
+        ← → Move | ↑ Jump | SPACE to start
     </div>
     
-    <!-- Phaser 3 CDN -->
+    <!-- Phaser 3 -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
     
-    <!-- Game Code -->
     <script>
-        // 🎮 Game Configuration
         const config = {
             type: Phaser.AUTO,
             width: 800,
@@ -105,139 +102,17 @@
         let scoreText;
         let score = 0;
         
-        // 🚀 Initialize Game
         const game = new Phaser.Game(config);
         
         function preload() {
-            // Pas besoin de charger assets externes!
-        }
-        
-        function create() {
-            // ⭐ Starfield background
-            createStarfield(this);
+            // Create astronaut texture programmatically
+            const graphics = this.make.graphics({ x: 0, y: 0, add: false });
             
-            // 🌍 Platforms
-            platforms = this.physics.add.staticGroup();
+            // Draw astronaut on graphics
+            // Helmet
+            graphics.fillStyle(0xeeeeee);
+            graphics.fillCircle(16, 12, 10);
             
-            // Ground
-            const ground = this.add.rectangle(400, 570, 800, 60, 0x2d1b4e);
-            this.physics.add.existing(ground, true);
-            platforms.add(ground);
-            
-            // Floating platforms
-            createPlatform(this, platforms, 200, 450, 150, 20);
-            createPlatform(this, platforms, 500, 350, 150, 20);
-            createPlatform(this, platforms, 300, 250, 150, 20);
-            createPlatform(this, platforms, 650, 450, 120, 20);
-            
-            // 👨‍🚀 Create Astronaut Player
-            player = createAstronaut(this, 100, 450);
-            
-            // Collision
-            this.physics.add.collider(player, platforms);
-            
-            // 💰 Create Coins
-            coins = this.physics.add.group();
-            createCoin(this, coins, 200, 400);
-            createCoin(this, coins, 500, 300);
-            createCoin(this, coins, 300, 200);
-            createCoin(this, coins, 650, 400);
-            createCoin(this, coins, 400, 500);
-            
-            this.physics.add.collider(coins, platforms);
-            this.physics.add.overlap(player, coins, collectCoin, null, this);
-            
-            // 🎮 Controls
-            cursors = this.input.keyboard.createCursorKeys();
-            
-            // 📊 Score
-            scoreText = this.add.text(16, 16, 'MRT COINS: 0', {
-                fontSize: '20px',
-                fill: '#ffd700',
-                fontFamily: 'Arial',
-                fontStyle: 'bold'
-            });
-            scoreText.setStroke('#ff6b00', 3);
-            
-            // 🚀 Title
-            const title = this.add.text(400, 60, 'MOONROAD RUNNER', {
-                fontSize: '28px',
-                fill: '#ffd700',
-                fontFamily: 'Arial',
-                fontStyle: 'bold'
-            });
-            title.setOrigin(0.5);
-            title.setStroke('#ff6b00', 4);
-            
-            // Instructions
-            const instructions = this.add.text(400, 100, 'Collect MRT coins! Press SPACE to start', {
-                fontSize: '12px',
-                fill: '#00ff00'
-            });
-            instructions.setOrigin(0.5);
-            
-            // Space to start
-            this.input.keyboard.once('keydown-SPACE', () => {
-                gameStarted = true;
-                instructions.setText('🚀 Go to the Moon!');
-                this.tweens.add({
-                    targets: instructions,
-                    alpha: 0,
-                    duration: 2000
-                });
-            });
-        }
-        
-        function update() {
-            if (!gameStarted) return;
-            
-            // Player movement
-            if (cursors.left.isDown) {
-                player.body.setVelocityX(-200);
-                player.flipX = true;
-            } else if (cursors.right.isDown) {
-                player.body.setVelocityX(200);
-                player.flipX = false;
-            } else {
-                player.body.setVelocityX(0);
-            }
-            
-            // Jump
-            if (cursors.up.isDown && player.body.touching.down) {
-                player.body.setVelocityY(-500);
-                
-                // Jump animation
-                player.list[0].setScale(1.1, 0.9); // Helmet squash
-                this.tweens.add({
-                    targets: player.list[0],
-                    scaleX: 1,
-                    scaleY: 1,
-                    duration: 200
-                });
-            }
-        }
-        
-        // 👨‍🚀 Create Astronaut Function
-        function createAstronaut(scene, x, y) {
-            const astronaut = scene.add.container(x, y);
-            
-            // Helmet (white sphere with visor)
-            const helmet = scene.add.circle(0, -20, 14, 0xeeeeee);
-            
-            // Visor (dark blue glass)
-            const visor = scene.add.arc(0, -20, 10, 220, 320, false, 0x1a4d7a);
-            visor.setStrokeStyle(2, 0x0a2540);
-            
-            // Visor reflection
-            const visorReflection = scene.add.circle(-3, -23, 3, 0x5599ff, 0.6);
-            
-            // Body (white suit)
-            const body = scene.add.rectangle(0, 0, 20, 24, 0xdddddd);
-            body.setStrokeStyle(2, 0xaaaaaa);
-            
-            // Chest panel (control panel)
-            const chestPanel = scene.add.rectangle(0, -2, 12, 8, 0x333333);
-            
-            // Buttons on chest
-            const button1 = scene.add.circle(-3, -2, 1.5, 0xff0000);
-            const but
+            // Visor
+            graphics.fillStyle(0x1a4d7a);
+            graphics.fillCircle(16, 12, 7);
