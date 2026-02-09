@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌙 Moonroad Runner</title>
+    <title>🌙 Moonroad Runner - Level 1</title>
     <style>
         * { margin: 0; padding: 0; }
         body {
@@ -29,6 +29,12 @@
             margin: 10px 0;
         }
         
+        .level-info {
+            color: #00ff00;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        
         canvas {
             border: 3px solid #ffd700;
             border-radius: 10px;
@@ -39,6 +45,13 @@
             margin-top: 20px;
             color: #00ff00;
             font-size: 14px;
+            text-align: center;
+        }
+        
+        .controls {
+            margin-top: 10px;
+            color: #888;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -46,35 +59,42 @@
     <div class="header">
         <div style="font-size: 4em;">👨‍🚀</div>
         <div class="title">MOONROAD RUNNER</div>
+        <div class="level-info">🌍 LEVEL 1: EARTH LAUNCH</div>
     </div>
     
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     
     <div class="info">
-        ← → Move | ↑ Jump | Space to Start
+        <div id="gameInfo">← → Move | ↑ Jump | Space to Start</div>
+        <div class="controls">Collect all MRT coins and reach the flag! 🏁</div>
     </div>
     
     <script>
-        // 🎮 MOONROAD RUNNER - Pure Canvas Game
+        // 🎮 MOONROAD RUNNER - LEVEL 1
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const gameInfo = document.getElementById('gameInfo');
         
         // Game state
         let gameStarted = false;
+        let gameWon = false;
+        let gameLost = false;
         let score = 0;
-        let animationFrame = 0;
+        let lives = 3;
+        let invincible = false;
+        let invincibleTimer = 0;
         
         // Player
         const player = {
-            x: 100,
-            y: 400,
+            x: 50,
+            y: 450,
             width: 32,
             height: 48,
             velocityY: 0,
             velocityX: 0,
             jumping: false,
             facingRight: true,
-            onGround: false
+            blinkTimer: 0
         };
         
         // Physics
@@ -84,21 +104,38 @@
         
         // Platforms
         const platforms = [
-            { x: 0, y: 550, width: 800, height: 50, color: '#2d1b4e' },      // Ground
-            { x: 150, y: 450, width: 150, height: 20, color: '#4a2b7a' },
-            { x: 450, y: 350, width: 150, height: 20, color: '#4a2b7a' },
-            { x: 250, y: 250, width: 150, height: 20, color: '#4a2b7a' },
-            { x: 600, y: 450, width: 120, height: 20, color: '#4a2b7a' }
+            { x: 0, y: 550, width: 800, height: 50 },      // Ground
+            { x: 120, y: 480, width: 100, height: 15 },
+            { x: 280, y: 420, width: 120, height: 15 },
+            { x: 160, y: 340, width: 100, height: 15 },
+            { x: 350, y: 280, width: 140, height: 15 },
+            { x: 550, y: 350, width: 100, height: 15 },
+            { x: 680, y: 420, width: 120, height: 15 },
+            { x: 600, y: 500, width: 180, height: 15 }
         ];
         
-        // Coins
+        // Coins (need to collect all!)
         const coins = [
-            { x: 200, y: 410, collected: false, offset: 0 },
-            { x: 500, y: 310, collected: false, offset: 1 },
-            { x: 300, y: 210, collected: false, offset: 2 },
-            { x: 650, y: 410, collected: false, offset: 3 },
-            { x: 400, y: 510, collected: false, offset: 4 }
+            { x: 170, y: 450, collected: false },
+            { x: 340, y: 390, collected: false },
+            { x: 210, y: 310, collected: false },
+            { x: 420, y: 250, collected: false },
+            { x: 600, y: 320, collected: false },
+            { x: 730, y: 390, collected: false },
+            { x: 690, y: 470, collected: false }
         ];
+        
+        // Enemy (alien!)
+        const enemies = [
+            { x: 300, y: 400, width: 30, height: 30, speed: 2, direction: 1, minX: 280, maxX: 400 },
+            { x: 580, y: 330, width: 30, height: 30, speed: 1.5, direction: 1, minX: 550, maxX: 650 }
+        ];
+        
+        // Power-up (invincibility star)
+        const powerup = { x: 420, y: 230, collected: false, rotation: 0 };
+        
+        // Goal flag
+        const flag = { x: 750, y: 380, width: 30, height: 60 };
         
         // Stars background
         const stars = [];
@@ -107,8 +144,7 @@
                 x: Math.random() * 800,
                 y: Math.random() * 600,
                 size: Math.random() * 2 + 1,
-                alpha: Math.random() * 0.7 + 0.3,
-                twinkleSpeed: Math.random() * 0.02 + 0.01
+                alpha: Math.random() * 0.7 + 0.3
             });
         }
         
@@ -116,183 +152,238 @@
         const keys = {};
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            if (e.key === ' ') {
-                e.preventDefault();
-                if (!gameStarted) gameStarted = true;
+            if (e.key === ' ' && !gameStarted && !gameWon && !gameLost) {
+                gameStarted = true;
+            }
+            if (e.key === 'r' && (gameWon || gameLost)) {
+                resetGame();
             }
         });
-        window.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
-        });
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
         
         // Draw astronaut
-        function drawAstronaut(x, y, facingRight) {
+        function drawAstronaut(x, y, facingRight, blink = false) {
             ctx.save();
             ctx.translate(x, y);
             if (!facingRight) ctx.scale(-1, 1);
             
-            // Shadow
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.beginPath();
-            ctx.ellipse(0, 35, 15, 5, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Backpack (behind body)
-            ctx.fillStyle = '#555555';
-            ctx.fillRect(-8, -2, 16, 18);
-            ctx.strokeStyle = '#333333';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-8, -2, 16, 18);
-            
-            // Oxygen tubes
-            ctx.strokeStyle = '#00dddd';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(-5, 0);
-            ctx.lineTo(-5, -15);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(5, 0);
-            ctx.lineTo(5, -15);
-            ctx.stroke();
-            
-            // Legs
-            ctx.fillStyle = '#dddddd';
-            ctx.fillRect(-7, 18, 5, 14);
-            ctx.fillRect(2, 18, 5, 14);
-            ctx.strokeStyle = '#aaaaaa';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-7, 18, 5, 14);
-            ctx.strokeRect(2, 18, 5, 14);
-            
-            // Boots
-            ctx.fillStyle = '#222222';
-            ctx.beginPath();
-            ctx.ellipse(-4.5, 32, 4.5, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(4.5, 32, 4.5, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Body
-            ctx.fillStyle = '#eeeeee';
-            ctx.fillRect(-10, -8, 20, 26);
-            ctx.strokeStyle = '#cccccc';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-10, -8, 20, 26);
-            
-            // Arms
-            ctx.fillStyle = '#dddddd';
-            ctx.fillRect(-15, 0, 5, 18);
-            ctx.fillRect(10, 0, 5, 18);
-            ctx.strokeStyle = '#aaaaaa';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-15, 0, 5, 18);
-            ctx.strokeRect(10, 0, 5, 18);
-            
-            // Gloves
-            ctx.fillStyle = '#ff6600';
-            ctx.beginPath();
-            ctx.arc(-12.5, 18, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(12.5, 18, 4, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Chest panel
-            ctx.fillStyle = '#444444';
-            ctx.fillRect(-6, 2, 12, 10);
-            ctx.strokeStyle = '#222222';
-            ctx.strokeRect(-6, 2, 12, 10);
-            
-            // Buttons on chest
-            ctx.fillStyle = '#ff0000';
-            ctx.beginPath();
-            ctx.arc(-3, 7, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#00ff00';
-            ctx.beginPath();
-            ctx.arc(0, 7, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#0000ff';
-            ctx.beginPath();
-            ctx.arc(3, 7, 1.5, 0, Math.PI * 2);
-            ctx.fill();
+            // Blink effect when invincible
+            if (blink && Math.floor(Date.now() / 100) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
             
             // Helmet
-            ctx.fillStyle = '#f5f5f5';
+            ctx.fillStyle = '#eeeeee';
             ctx.beginPath();
-            ctx.arc(0, -18, 14, 0, Math.PI * 2);
+            ctx.arc(0, -20, 14, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = '#dddddd';
-            ctx.lineWidth = 2;
-            ctx.stroke();
             
             // Visor
             ctx.fillStyle = '#1a4d7a';
             ctx.beginPath();
-            ctx.arc(0, -18, 10, 0.2, Math.PI - 0.2);
-            ctx.fill();
-            ctx.strokeStyle = '#0a2540';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            // Visor reflection
-            ctx.fillStyle = 'rgba(85, 153, 255, 0.6)';
-            ctx.beginPath();
-            ctx.arc(-4, -22, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(-1, -21, 2, 0, Math.PI * 2);
+            ctx.arc(0, -20, 10, 0, Math.PI * 2);
             ctx.fill();
             
-            // Antenna (cute detail)
-            ctx.strokeStyle = '#cccccc';
-            ctx.lineWidth = 2;
+            // Visor shine
+            ctx.fillStyle = '#5599ff';
             ctx.beginPath();
-            ctx.moveTo(0, -32);
-            ctx.lineTo(0, -36);
-            ctx.stroke();
+            ctx.arc(-3, -23, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Body
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-10, -5, 20, 25);
+            
+            // Chest panel
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(-6, -2, 12, 8);
+            
+            // Buttons (colored!)
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(0, -37, 2, 0, Math.PI * 2);
+            ctx.arc(-3, 1, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(0, 1, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#0000ff';
+            ctx.beginPath();
+            ctx.arc(3, 1, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Arms
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-14, 0, 5, 16);
+            ctx.fillRect(9, 0, 5, 16);
+            
+            // Gloves (orange!)
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(-11.5, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(11.5, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Legs
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-7, 20, 5, 12);
+            ctx.fillRect(2, 20, 5, 12);
+            
+            // Boots
+            ctx.fillStyle = '#333333';
+            ctx.beginPath();
+            ctx.arc(-4.5, 32, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(4.5, 32, 4, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.restore();
         }
         
         // Draw coin
-        function drawCoin(x, y, offset) {
-            const floatY = y + Math.sin((animationFrame * 0.05) + offset) * 5;
-            const rotation = (animationFrame * 0.05) + offset;
+        function drawCoin(x, y, time) {
+            const floatY = y + Math.sin(time / 500) * 5;
             
             ctx.save();
             ctx.translate(x, floatY);
-            ctx.rotate(rotation);
+            ctx.rotate(time / 1000);
             
-            // Outer ring
             ctx.fillStyle = '#ffd700';
-            ctx.strokeStyle = '#ff8800';
+            ctx.strokeStyle = '#ff6b00';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(0, 0, 12, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
             
-            // Inner circle
             ctx.fillStyle = '#ffed4e';
             ctx.beginPath();
-            ctx.arc(0, 0, 9, 0, Math.PI * 2);
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
             ctx.fill();
             
-            // M letter
             ctx.fillStyle = '#ff6b00';
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('M', 0, 0);
             
             ctx.restore();
+        }
+        
+        // Draw enemy (alien)
+        function drawEnemy(x, y) {
+            ctx.save();
+            ctx.translate(x + 15, y + 15);
+            
+            // Body (green alien)
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eyes (big!)
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(-5, -3, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(5, -3, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eye shine
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-4, -4, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(6, -4, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Mouth (menacing)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 3, 6, 0, Math.PI);
+            ctx.stroke();
+            
+            // Antennae
+            ctx.strokeStyle = '#00aa00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-8, -12);
+            ctx.lineTo(-10, -18);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(8, -12);
+            ctx.lineTo(10, -18);
+            ctx.stroke();
+            
+            // Antenna balls
+            ctx.fillStyle = '#ff00ff';
+            ctx.beginPath();
+            ctx.arc(-10, -18, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(10, -18, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        // Draw power-up (star)
+        function drawPowerup(x, y, rotation) {
+            ctx.save();
+            ctx.translate(x, y + Math.sin(Date.now() / 300) * 5);
+            ctx.rotate(rotation);
+            
+            // Star shape
+            ctx.fillStyle = '#ffff00';
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                const x = Math.cos(angle) * 12;
+                const y = Math.sin(angle) * 12;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        // Draw flag
+        function drawFlag(x, y) {
+            // Pole
+            ctx.fillStyle = '#888888';
+            ctx.fillRect(x, y, 5, 60);
+            
+            // Flag (waving)
+            const wave = Math.sin(Date.now() / 200) * 3;
+            ctx.fillStyle = '#00ff00';
+            ctx.strokeStyle = '#006600';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + 5, y);
+            ctx.lineTo(x + 30 + wave, y + 10);
+            ctx.lineTo(x + 25 + wave, y + 20);
+            ctx.lineTo(x + 5, y + 15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Checkered pattern
+            ctx.fillStyle = '#00aa00';
+            ctx.fillRect(x + 8, y + 3, 8, 5);
+            ctx.fillRect(x + 16 + wave/2, y + 8, 6, 5);
         }
         
         // Collision detection
@@ -303,27 +394,54 @@
                    rect1.y + rect1.height > rect2.y;
         }
         
+        // Reset game
+        function resetGame() {
+            player.x = 50;
+            player.y = 450;
+            player.velocityY = 0;
+            player.velocityX = 0;
+            score = 0;
+            lives = 3;
+            gameStarted = false;
+            gameWon = false;
+            gameLost = false;
+            invincible = false;
+            invincibleTimer = 0;
+            
+            coins.forEach(c => c.collected = false);
+            powerup.collected = false;
+            
+            enemies[0].x = 300;
+            enemies[1].x = 580;
+        }
+        
         // Update
         function update() {
-            if (!gameStarted) return;
+            if (!gameStarted || gameWon || gameLost) return;
             
-            animationFrame++;
+            // Invincibility timer
+            if (invincible) {
+                invincibleTimer--;
+                if (invincibleTimer <= 0) {
+                    invincible = false;
+                }
+            }
             
             // Movement
-            player.velocityX = 0;
             if (keys['ArrowLeft']) {
                 player.velocityX = -moveSpeed;
                 player.facingRight = false;
-            }
-            if (keys['ArrowRight']) {
+            } else if (keys['ArrowRight']) {
                 player.velocityX = moveSpeed;
                 player.facingRight = true;
+            } else {
+                player.velocityX = 0;
             }
             
             // Jump
-            if (keys['ArrowUp'] && player.onGround) {
+            if (keys['ArrowUp'] && !player.jumping) {
                 player.velocityY = jumpPower;
-                player.onGround = false;
+                player.jumping = true;
             }
             
             // Apply gravity
@@ -336,19 +454,26 @@
             // Bounds
             if (player.x < 0) player.x = 0;
             if (player.x > 800 - player.width) player.x = 800 - player.width;
-            if (player.y > 600) {
-                player.y = 400;
-                player.velocityY = 0;
+            
+            // Fall death
+            if (player.y > 650) {
+                lives--;
+                if (lives <= 0) {
+                    gameLost = true;
+                } else {
+                    player.x = 50;
+                    player.y = 450;
+                    player.velocityY = 0;
+                }
             }
             
             // Platform collision
-            player.onGround = false;
             for (let platform of platforms) {
                 if (checkCollision(player, platform)) {
-                    if (player.velocityY > 0 && player.y + player.height - player.velocityY <= platform.y) {
+                    if (player.velocityY > 0) {
                         player.y = platform.y - player.height;
                         player.velocityY = 0;
-                        player.onGround = true;
+                        player.jumping = false;
                     }
                 }
             }
@@ -356,18 +481,53 @@
             // Coin collision
             for (let coin of coins) {
                 if (!coin.collected) {
-                    const coinRect = { 
-                        x: coin.x - 12, 
-                        y: coin.y - 12, 
-                        width: 24, 
-                        height: 24 
-                    };
+                    const coinRect = { x: coin.x - 12, y: coin.y - 12, width: 24, height: 24 };
                     if (checkCollision(player, coinRect)) {
                         coin.collected = true;
                         score += 10;
                     }
                 }
             }
+            
+            // Power-up collision
+            if (!powerup.collected) {
+                const powerupRect = { x: powerup.x - 12, y: powerup.y - 12, width: 24, height: 24 };
+                if (checkCollision(player, powerupRect)) {
+                    powerup.collected = true;
+                    invincible = true;
+                    invincibleTimer = 300; // 5 seconds at 60fps
+                }
+            }
+            
+            // Enemy update
+            for (let enemy of enemies) {
+                enemy.x += enemy.speed * enemy.direction;
+                if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
+                    enemy.direction *= -1;
+                }
+                
+                // Enemy collision
+                if (!invincible && checkCollision(player, enemy)) {
+                    lives--;
+                    if (lives <= 0) {
+                        gameLost = true;
+                    } else {
+                        player.x = 50;
+                        player.y = 450;
+                        player.velocityY = 0;
+                        invincible = true;
+                        invincibleTimer = 120; // 2 seconds invincibility after hit
+                    }
+                }
+            }
+            
+            // Flag collision (WIN!)
+            const allCoinsCollected = coins.every(c => c.collected);
+            if (allCoinsCollected && checkCollision(player, flag)) {
+                gameWon = true;
+            }
+            
+            powerup.rotation += 0.05;
         }
         
         // Draw
@@ -376,87 +536,132 @@
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, 800, 600);
             
-            // Stars with twinkling
+            // Stars
             for (let star of stars) {
-                const twinkle = Math.sin(animationFrame * star.twinkleSpeed) * 0.3 + 0.7;
-                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha * twinkle})`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
                 ctx.fillRect(star.x, star.y, star.size, star.size);
             }
             
             // Platforms
             for (let platform of platforms) {
-                ctx.fillStyle = platform.color;
+                const gradient = ctx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + platform.height);
+                gradient.addColorStop(0, '#4a2b7a');
+                gradient.addColorStop(1, '#2a1b5a');
+                ctx.fillStyle = gradient;
                 ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
                 
-                // Platform glow
                 ctx.strokeStyle = '#6a3b9a';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-                
-                // Subtle shine
-                const gradient = ctx.createLinearGradient(
-                    platform.x, platform.y, 
-                    platform.x, platform.y + platform.height
-                );
-                gradient.addColorStop(0, 'rgba(138, 43, 226, 0.3)');
-                gradient.addColorStop(1, 'rgba(138, 43, 226, 0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
             }
             
+            // Flag
+            drawFlag(flag.x, flag.y);
+            
             // Coins
+            const time = Date.now();
             for (let coin of coins) {
                 if (!coin.collected) {
-                    drawCoin(coin.x, coin.y, coin.offset);
+                    drawCoin(coin.x, coin.y, time);
                 }
             }
             
+            // Power-up
+            if (!powerup.collected) {
+                drawPowerup(powerup.x, powerup.y, powerup.rotation);
+            }
+            
+            // Enemies
+            for (let enemy of enemies) {
+                drawEnemy(enemy.x, enemy.y);
+            }
+            
             // Player
-            drawAstronaut(
-                player.x + player.width / 2, 
-                player.y + player.height / 2, 
-                player.facingRight
-            );
+            drawAstronaut(player.x + player.width / 2, player.y + player.height / 2, player.facingRight, invincible);
+            
+            // UI - Lives
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('LIVES:', 16, 30);
+            for (let i = 0; i < lives; i++) {
+                ctx.fillText('❤️', 80 + i * 25, 30);
+            }
             
             // UI - Score
             ctx.fillStyle = '#ffd700';
             ctx.strokeStyle = '#ff6b00';
             ctx.lineWidth = 3;
             ctx.font = 'bold 20px Arial';
-            ctx.strokeText('MRT COINS: ' + score, 20, 35);
-            ctx.fillText('MRT COINS: ' + score, 20, 35);
+            const scoreText = 'MRT: ' + score + '/70';
+            ctx.strokeText(scoreText, 16, 60);
+            ctx.fillText(scoreText, 16, 60);
             
-            // UI - Title
-            ctx.font = 'bold 28px Arial';
-            ctx.textAlign = 'center';
-            ctx.strokeText('MOONROAD RUNNER', 400, 50);
-            ctx.fillText('MOONROAD RUNNER', 400, 50);
-            
-            // Start instruction
-            if (!gameStarted) {
-                ctx.fillStyle = '#00ff00';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText('Press SPACE to Start!', 400, 300);
-                
-                // Blinking arrow
-                if (Math.floor(animationFrame / 30) % 2 === 0) {
-                    ctx.fillText('↓', 400, 330);
-                }
+            // UI - Invincibility
+            if (invincible) {
+                ctx.fillStyle = '#ffff00';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('⭐ INVINCIBLE! ' + Math.ceil(invincibleTimer / 60) + 's', 16, 85);
             }
             
-            // Win condition
-            if (score >= 50) {
+            // UI - Title
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffd700';
+            ctx.strokeStyle = '#ff6b00';
+            ctx.strokeText('LEVEL 1: EARTH LAUNCH', 400, 40);
+            ctx.fillText('LEVEL 1: EARTH LAUNCH', 400, 40);
+            
+            // Start screen
+            if (!gameStarted) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, 800, 600);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('Press SPACE to Start!', 400, 300);
+                
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText('Collect all 7 MRT coins', 400, 340);
+                ctx.fillText('Avoid the aliens 👾', 400, 365);
+                ctx.fillText('Reach the green flag! 🏁', 400, 390);
+            }
+            
+            // Win screen
+            if (gameWon) {
+                ctx.fillStyle = 'rgba(0, 100, 0, 0.8)';
                 ctx.fillRect(0, 0, 800, 600);
                 
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 48px Arial';
-                ctx.strokeText('YOU WIN!', 400, 280);
-                ctx.fillText('YOU WIN!', 400, 280);
+                ctx.fillText('🎉 LEVEL COMPLETE! 🎉', 400, 250);
                 
+                ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 24px Arial';
+                ctx.fillText('Score: ' + score, 400, 300);
+                ctx.fillText('Lives remaining: ' + lives, 400, 335);
+                
                 ctx.fillStyle = '#00ff00';
-                ctx.fillText('All MRT Coins Collected! 🌙', 400, 340);
+                ctx.font = '18px Arial';
+                ctx.fillText('Press R to restart', 400, 400);
+            }
+            
+            // Lose screen
+            if (gameLost) {
+                ctx.fillStyle = 'rgba(100, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, 800, 600);
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 48px Arial';
+                ctx.fillText('💀 GAME OVER 💀', 400, 250);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('Score: ' + score, 400, 300);
+                
+                ctx.fillStyle = '#ffff00';
+                ctx.font = '18px Arial';
+                ctx.fillText('Press R to try again', 400, 400);
             }
             
             ctx.textAlign = 'left';
@@ -470,10 +675,8 @@
         }
         
         // Start
-        console.log('🚀 Moonroad Runner initialized!');
-        console.log('👨‍🚀 Use Arrow keys to move and jump');
-        console.log('💰 Collect all 5 MRT coins!');
         gameLoop();
+        console.log('🚀 Moonroad Runner - Level 1 loaded!');
     </script>
 </body>
 </html>
