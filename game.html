@@ -1,284 +1,518 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moonroad Runner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>🌙 Moonroad Runner</title>
     <style>
-        body {
+        * {
             margin: 0;
-            background: #0a0e27;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #2d1b4e 100%);
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             min-height: 100vh;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             color: white;
-        }
-        
-        #game {
-            border: 3px solid gold;
-            background: #1a1a3e;
-        }
-        
-        .btn {
-            margin: 10px;
-            padding: 15px 30px;
-            font-size: 18px;
-            background: gold;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .arrow {
-            width: 60px;
-            height: 60px;
-            background: rgba(255,215,0,0.3);
-            border: 2px solid gold;
-            border-radius: 10px;
-            font-size: 24px;
-            color: gold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            user-select: none;
+            overflow: hidden;
             touch-action: none;
         }
-        
-        .arrow:active {
-            background: rgba(255,215,0,0.6);
+
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .title {
+            font-size: clamp(1.5em, 5vw, 3em);
+            color: #ffd700;
+            text-shadow: 0 0 20px #ffd700;
+            margin: 10px 0;
+        }
+
+        #gameContainer {
+            position: relative;
+            max-width: 100vw;
+        }
+
+        canvas {
+            border: 3px solid #ffd700;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255,215,0,0.3);
+            display: block;
+            background: #0a0e27;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+        }
+
+        .controls.active {
+            display: flex;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            pointer-events: all;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.3);
+            border: 3px solid #ffd700;
+            color: #ffd700;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .control-btn:active {
+            background: rgba(255, 215, 0, 0.7);
+            transform: scale(0.95);
+        }
+
+        .control-btn.jump {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 107, 0, 0.3);
+            border-color: #ff6b00;
+            color: #ff6b00;
+        }
+
+        .control-btn.jump:active {
+            background: rgba(255, 107, 0, 0.7);
+        }
+
+        .info {
+            margin-top: 10px;
+            color: #00ff00;
+            font-size: clamp(10px, 2vw, 14px);
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1 style="color: gold;">🌙 MOONROAD RUNNER 👨‍🚀</h1>
-    <canvas id="game" width="800" height="600"></canvas>
-    <div id="score" style="margin: 10px; font-size: 20px; color: gold;">MRT COINS: 0</div>
-    
-    <div class="controls" id="mobileControls" style="display: none;">
-        <div class="arrow" id="left">◄</div>
-        <div class="arrow" id="right">►</div>
-        <div class="arrow" id="up" style="background: rgba(255,107,0,0.3); border-color: #ff6b00; color: #ff6b00;">▲</div>
+    <div class="header">
+        <div style="font-size: clamp(2em, 8vw, 4em);">👨‍🚀</div>
+        <div class="title">MOONROAD RUNNER</div>
     </div>
-    
-    <button class="btn" onclick="startGame()">START GAME</button>
-    
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="controls" id="controls">
+            <div class="control-group">
+                <div class="control-btn" id="btnLeft">◄</div>
+                <div class="control-btn" id="btnRight">►</div>
+            </div>
+            <div class="control-group">
+                <div class="control-btn jump" id="btnJump">▲</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info" id="info">
+        Press SPACE or tap screen to start!
+    </div>
+
     <script>
-        const canvas = document.getElementById('game');
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('score');
-        
+        const controls = document.getElementById('controls');
+        const info = document.getElementById('info');
+
         // Detect mobile
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // Set canvas size
         if (isMobile) {
-            document.getElementById('mobileControls').style.display = 'flex';
             canvas.width = Math.min(800, window.innerWidth - 20);
             canvas.height = canvas.width * 0.75;
+        } else {
+            canvas.width = 800;
+            canvas.height = 600;
         }
-        
-        let game = {
-            started: false,
-            score: 0,
-            player: { x: 100, y: 400, vx: 0, vy: 0, w: 30, h: 40, jumping: false },
-            platforms: [
-                { x: 0, y: 550, w: 800, h: 50 },
-                { x: 200, y: 450, w: 150, h: 20 },
-                { x: 500, y: 350, w: 150, h: 20 },
-                { x: 300, y: 250, w: 150, h: 20 }
-            ],
-            coins: [
-                { x: 250, y: 420, active: true },
-                { x: 550, y: 320, active: true },
-                { x: 350, y: 220, active: true }
-            ],
-            keys: {}
+
+        // Game state
+        let gameStarted = false;
+        let score = 0;
+
+        // Player
+        let player = {
+            x: 100,
+            y: 450,
+            width: 32,
+            height: 48,
+            velocityY: 0,
+            velocityX: 0,
+            jumping: false,
+            facingRight: true
         };
-        
+
+        // Physics
+        const gravity = 0.8;
+        const jumpPower = -15;
+        const moveSpeed = 5;
+
+        // Platforms
+        let platforms = [
+            { x: 0, y: 550, width: canvas.width, height: 50 },
+            { x: 150, y: 450, width: 150, height: 20 },
+            { x: 450, y: 350, width: 150, height: 20 },
+            { x: 250, y: 250, width: 150, height: 20 },
+            { x: 600, y: 450, width: 120, height: 20 }
+        ];
+
+        // Coins
+        let coins = [
+            { x: 200, y: 400, collected: false },
+            { x: 500, y: 300, collected: false },
+            { x: 300, y: 200, collected: false },
+            { x: 650, y: 400, collected: false },
+            { x: 400, y: 500, collected: false }
+        ];
+
+        // Stars
+        let stars = [];
+        for (let i = 0; i < 200; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 1,
+                alpha: Math.random() * 0.7 + 0.3
+            });
+        }
+
         // Controls
-        window.addEventListener('keydown', e => {
-            game.keys[e.key] = true;
-            if (e.key === ' ') e.preventDefault();
-        });
-        window.addEventListener('keyup', e => game.keys[e.key] = false);
-        
-        // Mobile controls
-        ['left', 'right', 'up'].forEach(dir => {
-            const btn = document.getElementById(dir);
-            btn.addEventListener('touchstart', e => {
-                e.preventDefault();
-                game.keys['Arrow' + dir.charAt(0).toUpperCase() + dir.slice(1)] = true;
-            });
-            btn.addEventListener('touchend', e => {
-                e.preventDefault();
-                game.keys['Arrow' + dir.charAt(0).toUpperCase() + dir.slice(1)] = false;
-            });
-        });
-        
-        function startGame() {
-            game.started = true;
-            game.score = 0;
-            game.player = { x: 100, y: 400, vx: 0, vy: 0, w: 30, h: 40, jumping: false };
-            game.coins.forEach(c => c.active = true);
-        }
-        
-        function update() {
-            if (!game.started) return;
-            
-            const p = game.player;
-            
-            // Movement
-            if (game.keys['ArrowLeft']) p.vx = -5;
-            else if (game.keys['ArrowRight']) p.vx = 5;
-            else p.vx = 0;
-            
-            // Jump
-            if (game.keys['ArrowUp'] && !p.jumping) {
-                p.vy = -12;
-                p.jumping = true;
+        let keys = {};
+        let touch = { left: false, right: false, jump: false };
+
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if ((e.key === ' ' || e.key === 'Enter') && !gameStarted) {
+                startGame();
             }
-            
-            // Gravity
-            p.vy += 0.5;
-            p.x += p.vx;
-            p.y += p.vy;
-            
-            // Bounds
-            if (p.x < 0) p.x = 0;
-            if (p.x + p.w > canvas.width) p.x = canvas.width - p.w;
-            
-            // Platform collision
-            game.platforms.forEach(plat => {
-                if (p.x < plat.x + plat.w && p.x + p.w > plat.x &&
-                    p.y < plat.y + plat.h && p.y + p.h > plat.y) {
-                    if (p.vy > 0) {
-                        p.y = plat.y - p.h;
-                        p.vy = 0;
-                        p.jumping = false;
-                    }
-                }
+        });
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // Touch controls
+        function setupTouchControl(btnId, key) {
+            let btn = document.getElementById(btnId);
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touch[key] = true;
             });
-            
-            // Coin collision
-            game.coins.forEach(coin => {
-                if (coin.active) {
-                    const dist = Math.hypot(p.x + p.w/2 - coin.x, p.y + p.h/2 - coin.y);
-                    if (dist < 20) {
-                        coin.active = false;
-                        game.score += 10;
-                        scoreEl.textContent = 'MRT COINS: ' + game.score;
-                    }
-                }
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                touch[key] = false;
+            });
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                touch[key] = true;
+            });
+            btn.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                touch[key] = false;
             });
         }
-        
+
+        setupTouchControl('btnLeft', 'left');
+        setupTouchControl('btnRight', 'right');
+        setupTouchControl('btnJump', 'jump');
+
+        // Tap to start
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameStarted) {
+                e.preventDefault();
+                startGame();
+            }
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameStarted) startGame();
+        });
+
+        function startGame() {
+            gameStarted = true;
+            if (isMobile) {
+                controls.classList.add('active');
+                info.textContent = 'Use controls to move!';
+            } else {
+                info.textContent = '← → Move | ↑ Jump';
+            }
+            setTimeout(() => {
+                info.style.opacity = '0.5';
+            }, 2000);
+        }
+
+        // Draw astronaut
+        function drawAstronaut(x, y, facingRight) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (!facingRight) ctx.scale(-1, 1);
+
+            // Helmet
+            ctx.fillStyle = '#eeeeee';
+            ctx.beginPath();
+            ctx.arc(0, -20, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Visor
+            ctx.fillStyle = '#1a4d7a';
+            ctx.beginPath();
+            ctx.arc(0, -20, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Visor shine
+            ctx.fillStyle = '#5599ff';
+            ctx.beginPath();
+            ctx.arc(-3, -23, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-10, -5, 20, 25);
+
+            // Chest panel
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(-6, -2, 12, 8);
+
+            // Buttons
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(-4, 1, 2, 2);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(-1, 1, 2, 2);
+            ctx.fillStyle = '#0000ff';
+            ctx.fillRect(2, 1, 2, 2);
+
+            // Arms
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-14, 0, 5, 16);
+            ctx.fillRect(9, 0, 5, 16);
+
+            // Gloves
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(-11.5, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(11.5, 16, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Legs
+            ctx.fillStyle = '#dddddd';
+            ctx.fillRect(-7, 20, 5, 12);
+            ctx.fillRect(2, 20, 5, 12);
+
+            // Boots
+            ctx.fillStyle = '#333333';
+            ctx.beginPath();
+            ctx.arc(-4.5, 32, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(4.5, 32, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw coin
+        function drawCoin(x, y) {
+            let time = Date.now() / 1000;
+            let floatY = y + Math.sin(time * 2 + x) * 5;
+
+            ctx.save();
+            ctx.translate(x, floatY);
+            ctx.rotate(time);
+
+            // Outer ring
+            ctx.fillStyle = '#ffd700';
+            ctx.strokeStyle = '#ff6b00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner
+            ctx.fillStyle = '#ffed4e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Letter M
+            ctx.fillStyle = '#ff6b00';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('M', 0, 0);
+
+            ctx.restore();
+        }
+
+        // Collision detection
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Update
+        function update() {
+            if (!gameStarted) return;
+
+            let isLeft = keys['ArrowLeft'] || touch.left;
+            let isRight = keys['ArrowRight'] || touch.right;
+            let isJump = keys['ArrowUp'] || touch.jump;
+
+            // Movement
+            if (isLeft) {
+                player.velocityX = -moveSpeed;
+                player.facingRight = false;
+            } else if (isRight) {
+                player.velocityX = moveSpeed;
+                player.facingRight = true;
+            } else {
+                player.velocityX = 0;
+            }
+
+            // Jump
+            if (isJump && !player.jumping) {
+                player.velocityY = jumpPower;
+                player.jumping = true;
+            }
+
+            // Apply gravity
+            player.velocityY += gravity;
+
+            // Update position
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Bounds
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+
+            // Platform collision
+            for (let platform of platforms) {
+                if (checkCollision(player, platform)) {
+                    if (player.velocityY > 0) {
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.jumping = false;
+                    }
+                }
+            }
+
+            // Coin collision
+            for (let coin of coins) {
+                if (!coin.collected) {
+                    let coinRect = {
+                        x: coin.x - 12,
+                        y: coin.y - 12,
+                        width: 24,
+                        height: 24
+                    };
+                    if (checkCollision(player, coinRect)) {
+                        coin.collected = true;
+                        score += 10;
+
+                        // Mise à jour du meilleur score
+                        let highScore = localStorage.getItem('highScore') || 0;
+                        if (score > highScore) {
+                            localStorage.setItem('highScore', score);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw
         function draw() {
             // Clear
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             // Stars
-            ctx.fillStyle = 'white';
-            for (let i = 0; i < 50; i++) {
-                const x = (i * 137) % canvas.width;
-                const y = (i * 219) % canvas.height;
-                ctx.fillRect(x, y, 2, 2);
+            for (let star of stars) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
             }
-            
+
             // Platforms
-            ctx.fillStyle = '#4a2b7a';
-            ctx.strokeStyle = '#6a3b9a';
-            ctx.lineWidth = 2;
-            game.platforms.forEach(p => {
-                ctx.fillRect(p.x, p.y, p.w, p.h);
-                ctx.strokeRect(p.x, p.y, p.w, p.h);
-            });
-            
-            // Coins
-            game.coins.forEach(coin => {
-                if (coin.active) {
-                    ctx.fillStyle = 'gold';
-                    ctx.strokeStyle = '#ff6b00';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(coin.x, coin.y, 12, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    
-                    ctx.fillStyle = '#ff6b00';
-                    ctx.font = 'bold 14px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('M', coin.x, coin.y + 5);
-                }
-            });
-            
-            // Player (astronaut)
-            const p = game.player;
-            ctx.save();
-            ctx.translate(p.x + p.w/2, p.y + p.h/2);
-            
-            // Helmet
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(0, -10, 12, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Visor
-            ctx.fillStyle = '#1a4d7a';
-            ctx.beginPath();
-            ctx.arc(0, -10, 8, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Body
-            ctx.fillStyle = '#ddd';
-            ctx.fillRect(-10, 0, 20, 20);
-            
-            // Arms
-            ctx.fillRect(-14, 2, 4, 12);
-            ctx.fillRect(10, 2, 4, 12);
-            
-            // Legs
-            ctx.fillRect(-6, 18, 4, 10);
-            ctx.fillRect(2, 18, 4, 10);
-            
-            ctx.restore();
-            
-            // Instructions
-            if (!game.started) {
-                ctx.fillStyle = 'gold';
-                ctx.font = '24px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('Click START GAME!', canvas.width/2, canvas.height/2);
+            for (let platform of platforms) {
+                ctx.fillStyle = '#4a2b7a';
+                ctx.strokeStyle = '#6a3b9a';
+                ctx.lineWidth = 2;
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
             }
+
+            // Coins
+            for (let coin of coins) {
+                if (!coin.collected) {
+                    drawCoin(coin.x, coin.y);
+                }
+            }
+
+            // Player
+            drawAstronaut(player.x + player.width / 2, player.y + player.height / 2, player.facingRight);
+
+            // UI
+            ctx.fillStyle = '#ffd700';
+            ctx.strokeStyle = '#ff6b00';
+            ctx.lineWidth = 3;
+            ctx.font = 'bold 20px Arial';
+            ctx.strokeText('MRT COINS: ' + score, 16, 30);
+            ctx.fillText('MRT COINS: ' + score, 16, 30);
+
+            // Affichage du meilleur score
+            let highScore = localStorage.getItem('highScore') || 0;
+            ctx.font = 'bold 16px Arial';
+            ctx.strokeText('BEST: ' + highScore, 16, 60);
+            ctx.fillText('BEST: ' + highScore, 16, 60);
+
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeText('MOONROAD RUNNER', canvas.width / 2, 50);
+            ctx.fillText('MOONROAD RUNNER', canvas.width / 2, 50);
+
+            ctx.textAlign = 'left';
         }
-        
+
+        // Game loop
         function gameLoop() {
             update();
             draw();
             requestAnimationFrame(gameLoop);
         }
-        
+
+        // Start
         gameLoop();
-        console.log('Game loaded! Mobile:', isMobile);
+        console.log('🚀 Moonroad Runner loaded! Mobile:', isMobile);
     </script>
 </body>
 </html>
-```
-
-4. **Commit :**
-```
-✅ Ultra-simple version that works everywhere
-```
-
-5. **Attendez 1 minute**
-
-6. **Testez :**
-```
-https://moonroadx.github.io/moonroad-runner/game.html
