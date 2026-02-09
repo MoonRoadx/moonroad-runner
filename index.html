@@ -24,8 +24,7 @@
             text-shadow: 
                 0 0 10px #ffd700,
                 0 0 20px #ffd700,
-                0 0 30px #ff6b00,
-                0 0 40px #ff6b00;
+                0 0 30px #ff6b00;
             animation: glow 2s ease-in-out infinite alternate;
         }
         
@@ -47,11 +46,12 @@
             color: #00ff00;
             text-align: center;
             margin-top: 20px;
-            font-size: 12px;
+            font-size: 11px;
             text-shadow: 0 0 5px #00ff00;
+            max-width: 800px;
         }
         
-        .astronaut {
+        .astronaut-float {
             font-size: 3em;
             animation: float 3s ease-in-out infinite;
         }
@@ -64,17 +64,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="astronaut">👨‍🚀</div>
+    <div class="astronaut-float">👨‍🚀</div>
     <h1>🌙 MOONROAD RUNNER 🚀</h1>
     <div id="game-container"></div>
     <div class="info">
-        Press SPACE to start your journey to the Moon!
+        ← → Move | ↑ Jump | Press SPACE to start!
     </div>
     
     <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
     
-    <!-- Game Code (inline for now) -->
+    <!-- Game Code -->
     <script>
         // 🎮 Game Configuration
         const config = {
@@ -86,7 +86,7 @@
             physics: {
                 default: 'arcade',
                 arcade: {
-                    gravity: { y: 800 },
+                    gravity: { y: 1000 },
                     debug: false
                 }
             },
@@ -100,62 +100,92 @@
         let player;
         let cursors;
         let gameStarted = false;
+        let platforms;
+        let coins;
+        let scoreText;
+        let score = 0;
         
         // 🚀 Initialize Game
         const game = new Phaser.Game(config);
-        console.log('🌙 Moonroad Runner - Game initialized!');
         
         function preload() {
-            console.log('📦 Loading assets...');
-            // Assets will be loaded here later
+            // Pas besoin de charger assets externes!
         }
         
         function create() {
-            console.log('🎮 Creating game world...');
-            
-            // Starfield background
+            // ⭐ Starfield background
             createStarfield(this);
             
-            // Ground platform (temporary)
-            const ground = this.add.rectangle(400, 550, 800, 100, 0x2d1b4e);
-            this.physics.add.existing(ground, true); // Static body
+            // 🌍 Platforms
+            platforms = this.physics.add.staticGroup();
             
-            // Temporary player (will be replaced with astronaut sprite)
-            player = this.add.rectangle(100, 450, 32, 48, 0xffd700);
-            this.physics.add.existing(player);
-            player.body.setBounce(0.2);
-            player.body.setCollideWorldBounds(true);
+            // Ground
+            const ground = this.add.rectangle(400, 570, 800, 60, 0x2d1b4e);
+            this.physics.add.existing(ground, true);
+            platforms.add(ground);
+            
+            // Floating platforms
+            createPlatform(this, platforms, 200, 450, 150, 20);
+            createPlatform(this, platforms, 500, 350, 150, 20);
+            createPlatform(this, platforms, 300, 250, 150, 20);
+            createPlatform(this, platforms, 650, 450, 120, 20);
+            
+            // 👨‍🚀 Create Astronaut Player
+            player = createAstronaut(this, 100, 450);
             
             // Collision
-            this.physics.add.collider(player, ground);
+            this.physics.add.collider(player, platforms);
             
-            // Controls
+            // 💰 Create Coins
+            coins = this.physics.add.group();
+            createCoin(this, coins, 200, 400);
+            createCoin(this, coins, 500, 300);
+            createCoin(this, coins, 300, 200);
+            createCoin(this, coins, 650, 400);
+            createCoin(this, coins, 400, 500);
+            
+            this.physics.add.collider(coins, platforms);
+            this.physics.add.overlap(player, coins, collectCoin, null, this);
+            
+            // 🎮 Controls
             cursors = this.input.keyboard.createCursorKeys();
             
-            // Welcome text
-            const text = this.add.text(400, 100, 'MOONROAD RUNNER', {
-                fontSize: '32px',
+            // 📊 Score
+            scoreText = this.add.text(16, 16, 'MRT COINS: 0', {
+                fontSize: '20px',
                 fill: '#ffd700',
                 fontFamily: 'Arial',
                 fontStyle: 'bold'
             });
-            text.setOrigin(0.5);
-            text.setStroke('#ff6b00', 4);
+            scoreText.setStroke('#ff6b00', 3);
             
-            const subText = this.add.text(400, 150, '← → Arrow keys to move | ↑ to jump', {
-                fontSize: '14px',
+            // 🚀 Title
+            const title = this.add.text(400, 60, 'MOONROAD RUNNER', {
+                fontSize: '28px',
+                fill: '#ffd700',
+                fontFamily: 'Arial',
+                fontStyle: 'bold'
+            });
+            title.setOrigin(0.5);
+            title.setStroke('#ff6b00', 4);
+            
+            // Instructions
+            const instructions = this.add.text(400, 100, 'Collect MRT coins! Press SPACE to start', {
+                fontSize: '12px',
                 fill: '#00ff00'
             });
-            subText.setOrigin(0.5);
+            instructions.setOrigin(0.5);
             
             // Space to start
             this.input.keyboard.once('keydown-SPACE', () => {
                 gameStarted = true;
-                subText.setText('🚀 Let\'s go to the Moon!');
-                setTimeout(() => subText.destroy(), 2000);
+                instructions.setText('🚀 Go to the Moon!');
+                this.tweens.add({
+                    targets: instructions,
+                    alpha: 0,
+                    duration: 2000
+                });
             });
-            
-            console.log('✅ Game world created!');
         }
         
         function update() {
@@ -164,27 +194,50 @@
             // Player movement
             if (cursors.left.isDown) {
                 player.body.setVelocityX(-200);
+                player.flipX = true;
             } else if (cursors.right.isDown) {
                 player.body.setVelocityX(200);
+                player.flipX = false;
             } else {
                 player.body.setVelocityX(0);
             }
             
             // Jump
             if (cursors.up.isDown && player.body.touching.down) {
-                player.body.setVelocityY(-400);
+                player.body.setVelocityY(-500);
+                
+                // Jump animation
+                player.list[0].setScale(1.1, 0.9); // Helmet squash
+                this.tweens.add({
+                    targets: player.list[0],
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 200
+                });
             }
         }
         
-        function createStarfield(scene) {
-            // Create simple starfield
-            for (let i = 0; i < 200; i++) {
-                const x = Phaser.Math.Between(0, 800);
-                const y = Phaser.Math.Between(0, 600);
-                const size = Phaser.Math.Between(1, 3);
-                const star = scene.add.circle(x, y, size, 0xffffff, Phaser.Math.FloatBetween(0.3, 1));
-            }
-        }
-    </script>
-</body>
-</html>
+        // 👨‍🚀 Create Astronaut Function
+        function createAstronaut(scene, x, y) {
+            const astronaut = scene.add.container(x, y);
+            
+            // Helmet (white sphere with visor)
+            const helmet = scene.add.circle(0, -20, 14, 0xeeeeee);
+            
+            // Visor (dark blue glass)
+            const visor = scene.add.arc(0, -20, 10, 220, 320, false, 0x1a4d7a);
+            visor.setStrokeStyle(2, 0x0a2540);
+            
+            // Visor reflection
+            const visorReflection = scene.add.circle(-3, -23, 3, 0x5599ff, 0.6);
+            
+            // Body (white suit)
+            const body = scene.add.rectangle(0, 0, 20, 24, 0xdddddd);
+            body.setStrokeStyle(2, 0xaaaaaa);
+            
+            // Chest panel (control panel)
+            const chestPanel = scene.add.rectangle(0, -2, 12, 8, 0x333333);
+            
+            // Buttons on chest
+            const button1 = scene.add.circle(-3, -2, 1.5, 0xff0000);
+            const but
