@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>🌙 Moonroad Runner</title>
     <style>
         * {
@@ -11,6 +12,12 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         body {
@@ -41,6 +48,7 @@
         #gameContainer {
             position: relative;
             max-width: 100vw;
+            max-height: 100vh;
         }
 
         canvas {
@@ -49,6 +57,7 @@
             box-shadow: 0 0 30px rgba(255,215,0,0.3);
             display: block;
             background: #0a0e27;
+            touch-action: none;
         }
 
         .controls {
@@ -146,13 +155,23 @@
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         // Set canvas size
-        if (isMobile) {
-            canvas.width = Math.min(800, window.innerWidth - 20);
-            canvas.height = canvas.width * 0.75;
-        } else {
-            canvas.width = 800;
-            canvas.height = 600;
+        function resizeCanvas() {
+            if (isMobile) {
+                canvas.width = Math.min(800, window.innerWidth - 20);
+                canvas.height = canvas.width * 0.75;
+            } else {
+                canvas.width = 800;
+                canvas.height = 600;
+            }
         }
+
+        // Initial resize
+        resizeCanvas();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
 
         // Game state
         let gameStarted = false;
