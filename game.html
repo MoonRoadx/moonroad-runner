@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moonroad Runner</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0e27;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial;
+            color: white;
+        }
+        
+        #game {
+            border: 3px solid gold;
+            background: #1a1a3e;
+        }
+        
+        .btn {
+            margin: 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+            background: gold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .arrow {
+            width: 60px;
+            height: 60px;
+            background: rgba(255,215,0,0.3);
+            border: 2px solid gold;
+            border-radius: 10px;
+            font-size: 24px;
+            color: gold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        .arrow:active {
+            background: rgba(255,215,0,0.6);
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color: gold;">🌙 MOONROAD RUNNER 👨‍🚀</h1>
+    <canvas id="game" width="800" height="600"></canvas>
+    <div id="score" style="margin: 10px; font-size: 20px; color: gold;">MRT COINS: 0</div>
+    
+    <div class="controls" id="mobileControls" style="display: none;">
+        <div class="arrow" id="left">◄</div>
+        <div class="arrow" id="right">►</div>
+        <div class="arrow" id="up" style="background: rgba(255,107,0,0.3); border-color: #ff6b00; color: #ff6b00;">▲</div>
+    </div>
+    
+    <button class="btn" onclick="startGame()">START GAME</button>
+    
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        
+        // Detect mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            document.getElementById('mobileControls').style.display = 'flex';
+            canvas.width = Math.min(800, window.innerWidth - 20);
+            canvas.height = canvas.width * 0.75;
+        }
+        
+        let game = {
+            started: false,
+            score: 0,
+            player: { x: 100, y: 400, vx: 0, vy: 0, w: 30, h: 40, jumping: false },
+            platforms: [
+                { x: 0, y: 550, w: 800, h: 50 },
+                { x: 200, y: 450, w: 150, h: 20 },
+                { x: 500, y: 350, w: 150, h: 20 },
+                { x: 300, y: 250, w: 150, h: 20 }
+            ],
+            coins: [
+                { x: 250, y: 420, active: true },
+                { x: 550, y: 320, active: true },
+                { x: 350, y: 220, active: true }
+            ],
+            keys: {}
+        };
+        
+        // Controls
+        window.addEventListener('keydown', e => {
+            game.keys[e.key] = true;
+            if (e.key === ' ') e.preventDefault();
+        });
+        window.addEventListener('keyup', e => game.keys[e.key] = false);
+        
+        // Mobile controls
+        ['left', 'right', 'up'].forEach(dir => {
+            const btn = document.getElementById(dir);
+            btn.addEventListener('touchstart', e => {
+                e.preventDefault();
+                game.keys['Arrow' + dir.charAt(0).toUpperCase() + dir.slice(1)] = true;
+            });
+            btn.addEventListener('touchend', e => {
+                e.preventDefault();
+                game.keys['Arrow' + dir.charAt(0).toUpperCase() + dir.slice(1)] = false;
+            });
+        });
+        
+        function startGame() {
+            game.started = true;
+            game.score = 0;
+            game.player = { x: 100, y: 400, vx: 0, vy: 0, w: 30, h: 40, jumping: false };
+            game.coins.forEach(c => c.active = true);
+        }
+        
+        function update() {
+            if (!game.started) return;
+            
+            const p = game.player;
+            
+            // Movement
+            if (game.keys['ArrowLeft']) p.vx = -5;
+            else if (game.keys['ArrowRight']) p.vx = 5;
+            else p.vx = 0;
+            
+            // Jump
+            if (game.keys['ArrowUp'] && !p.jumping) {
+                p.vy = -12;
+                p.jumping = true;
+            }
+            
+            // Gravity
+            p.vy += 0.5;
+            p.x += p.vx;
+            p.y += p.vy;
+            
+            // Bounds
+            if (p.x < 0) p.x = 0;
+            if (p.x + p.w > canvas.width) p.x = canvas.width - p.w;
+            
+            // Platform collision
+            game.platforms.forEach(plat => {
+                if (p.x < plat.x + plat.w && p.x + p.w > plat.x &&
+                    p.y < plat.y + plat.h && p.y + p.h > plat.y) {
+                    if (p.vy > 0) {
+                        p.y = plat.y - p.h;
+                        p.vy = 0;
+                        p.jumping = false;
+                    }
+                }
+            });
+            
+            // Coin collision
+            game.coins.forEach(coin => {
+                if (coin.active) {
+                    const dist = Math.hypot(p.x + p.w/2 - coin.x, p.y + p.h/2 - coin.y);
+                    if (dist < 20) {
+                        coin.active = false;
+                        game.score += 10;
+                        scoreEl.textContent = 'MRT COINS: ' + game.score;
+                    }
+                }
+            });
+        }
+        
+        function draw() {
+            // Clear
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Stars
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 137) % canvas.width;
+                const y = (i * 219) % canvas.height;
+                ctx.fillRect(x, y, 2, 2);
+            }
+            
+            // Platforms
+            ctx.fillStyle = '#4a2b7a';
+            ctx.strokeStyle = '#6a3b9a';
+            ctx.lineWidth = 2;
+            game.platforms.forEach(p => {
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.strokeRect(p.x, p.y, p.w, p.h);
+            });
+            
+            // Coins
+            game.coins.forEach(coin => {
+                if (coin.active) {
+                    ctx.fillStyle = 'gold';
+                    ctx.strokeStyle = '#ff6b00';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(coin.x, coin.y, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = '#ff6b00';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('M', coin.x, coin.y + 5);
+                }
+            });
+            
+            // Player (astronaut)
+            const p = game.player;
+            ctx.save();
+            ctx.translate(p.x + p.w/2, p.y + p.h/2);
+            
+            // Helmet
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(0, -10, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Visor
+            ctx.fillStyle = '#1a4d7a';
+            ctx.beginPath();
+            ctx.arc(0, -10, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Body
+            ctx.fillStyle = '#ddd';
+            ctx.fillRect(-10, 0, 20, 20);
+            
+            // Arms
+            ctx.fillRect(-14, 2, 4, 12);
+            ctx.fillRect(10, 2, 4, 12);
+            
+            // Legs
+            ctx.fillRect(-6, 18, 4, 10);
+            ctx.fillRect(2, 18, 4, 10);
+            
+            ctx.restore();
+            
+            // Instructions
+            if (!game.started) {
+                ctx.fillStyle = 'gold';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Click START GAME!', canvas.width/2, canvas.height/2);
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        console.log('Game loaded! Mobile:', isMobile);
+    </script>
+</body>
+</html>
+```
+
+4. **Commit :**
+```
+✅ Ultra-simple version that works everywhere
+```
+
+5. **Attendez 1 minute**
+
+6. **Testez :**
+```
+https://moonroadx.github.io/moonroad-runner/game.html
