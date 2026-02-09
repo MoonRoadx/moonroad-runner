@@ -25,7 +25,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             color: white;
             overflow: hidden;
         }
@@ -40,6 +40,7 @@
             font-size: 6vw;
             color: #ffd700;
             text-shadow: 0 0 10px #ffd700;
+            font-weight: bold;
         }
 
         #gameContainer {
@@ -92,6 +93,7 @@
             justify-content: center;
             cursor: pointer;
             user-select: none;
+            font-weight: bold;
         }
 
         .control-btn:active {
@@ -116,6 +118,7 @@
             font-size: 4vw;
             z-index: 1000;
             pointer-events: none;
+            font-weight: bold;
         }
 
         .game-over-screen {
@@ -130,7 +133,7 @@
             align-items: center;
             z-index: 2000;
             color: #ffd700;
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             text-align: center;
             flex-direction: column;
         }
@@ -144,17 +147,20 @@
             padding: 20px;
             border-radius: 10px;
             border: 2px solid #ffd700;
+            width: 80%;
         }
 
         .game-over-screen h1 {
             font-size: 7vw;
             margin-bottom: 15px;
             text-shadow: 0 0 10px #ffd700;
+            font-weight: bold;
         }
 
         .game-over-screen p {
             font-size: 4vw;
             margin: 8px;
+            font-weight: bold;
         }
 
         #restartButton, #shareButton {
@@ -166,13 +172,14 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div style="font-size: 8vw;">👨‍🚀</div>
-        <div class="title">LE COUREUR</div>
+        <div class="title">LE COUREUR<br>DE LA ROUTE LUNAIRE</div>
     </div>
 
     <div id="gameContainer">
@@ -181,11 +188,11 @@
 
     <div class="controls">
         <div class="control-group">
-            <div class="control-btn" id="btnLeft">◄</div>
-            <div class="control-btn" id="btnRight">►</div>
+            <div class="control-btn" id="btnLeft">←</div>
+            <div class="control-btn" id="btnRight">→</div>
         </div>
         <div class="control-group">
-            <div class="control-btn jump" id="btnJump">▲</div>
+            <div class="control-btn jump" id="btnJump">↑</div>
         </div>
     </div>
 
@@ -266,12 +273,14 @@
             platforms = [
                 { x: 0, y: canvas.height - 50, width: canvas.width, height: 40 },
                 { x: canvas.width * 0.2, y: canvas.height * 0.7, width: canvas.width * 0.4, height: 20 },
-                { x: canvas.width * 0.5, y: canvas.height * 0.5, width: canvas.width * 0.4, height: 20 }
+                { x: canvas.width * 0.5, y: canvas.height * 0.5, width: canvas.width * 0.4, height: 20 },
+                { x: canvas.width * 0.3, y: canvas.height * 0.3, width: canvas.width * 0.4, height: 20 }
             ];
 
             coins = [
-                { x: canvas.width * 0.3, y: canvas.height * 0.6, collected: false },
-                { x: canvas.width * 0.7, y: canvas.height * 0.4, collected: false }
+                { x: canvas.width * 0.3, y: canvas.height * 0.3, collected: false },
+                { x: canvas.width * 0.7, y: canvas.height * 0.5, collected: false },
+                { x: canvas.width * 0.5, y: canvas.height * 0.7, collected: false }
             ];
 
             player.y = canvas.height * 0.7;
@@ -315,7 +324,7 @@
             }, 1500);
         }
 
-        // Draw astronaut (simplified for performance)
+        // Draw astronaut
         function drawAstronaut(x, y, facingRight) {
             ctx.save();
             ctx.translate(x, y);
@@ -345,17 +354,17 @@
             ctx.restore();
         }
 
-        // Draw coin (simplified)
+        // Draw coin
         function drawCoin(x, y) {
             ctx.fillStyle = '#ffd700';
             ctx.beginPath();
             ctx.arc(x, y, 10, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#ff6b00';
+            ctx.fillStyle = '#0a0e27';
             ctx.font = 'bold 10px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('M', x, y);
+            ctx.fillText('L', x, y);
         }
 
         // Collision detection
@@ -429,6 +438,11 @@
             ctx.fillStyle = '#0a0e27';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            for (const star of stars) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            }
+
             for (const platform of platforms) {
                 ctx.fillStyle = '#4a2b7a';
                 ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
@@ -441,22 +455,26 @@
             drawAstronaut(player.x + player.width / 2, player.y + player.height / 2, player.facingRight);
 
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 5vw Arial';
-            ctx.fillText('SCORE: ' + score, 10, 25);
+            ctx.font = 'bold 4vw Arial';
+            ctx.fillText(`PIÈCES LUNAIRES: ${score}`, 10, 25);
+
+            const highScore = localStorage.getItem('highScore') || 0;
+            ctx.font = 'bold 3.5vw Arial';
+            ctx.fillText(`MEILLEUR: ${highScore}`, 10, 50);
         }
 
         // Show game over screen
         function showGameOverScreen() {
             gameStarted = false;
             gameOverScreen.style.display = 'flex';
-            finalScoreText.textContent = 'SCORE: ' + score;
-            finalBestScoreText.textContent = 'MEILLEUR: ' + (localStorage.getItem('highScore') || 0);
+            finalScoreText.textContent = `SCORE: ${score}`;
+            finalBestScoreText.textContent = `MEILLEUR: ${localStorage.getItem('highScore') || 0}`;
         }
 
         // Share score
         function shareScore() {
             const currentScore = localStorage.getItem('highScore') || score;
-            const shareText = `Mon score : ${currentScore} sur Le Coureur de la Route Lunaire ! 🌙`;
+            const shareText = `Mon score : ${currentScore} sur Le Coureur de la Route Lunaire! 🌙`;
             if (navigator.share) {
                 navigator.share({ title: 'Le Coureur de la Route Lunaire', text: shareText, url: window.location.href })
                     .catch(() => alert("Copiez ce texte : " + shareText));
